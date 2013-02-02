@@ -4,14 +4,14 @@ from xml.dom.minidom import *
 from tkFileDialog import *
 from PIL import Image, ImageTk
 
-class BoutonQuitter(Button):
+#class BoutonQuitter(Button):
     
-    def __init__(self, master, *args, **kw):
-        self.master = master
-        Button.__init__(self, master, text="Quitter", command=self.quitter, *args, **kw)
+    #def __init__(self, master, *args, **kw):
+        #self.master = master
+        #Button.__init__(self, master, text="Quitter", command=self.quitter, *args, **kw)
 
-    def quitter(self):
-        self.master.quitter()
+    #def quitter(self):
+        #self.master.quitter()
 
 class FormulaireEntreprise(Frame):
 
@@ -521,13 +521,11 @@ class Vue(Tk):
         self.frame.destroy()
         self.frame = FormulaireEntreprise(self)
         self.frame.pack()
-        self.presentateur.nouvelleEntreprise()
 
     def nouvelleFacture(self):
         self.frame.destroy()
         self.frame = FormulaireFacture(self)
         self.frame.pack()
-        self.presentateur.nouvelleFacture()
 
     def quitter(self):
         self.quit()
