@@ -11,13 +11,13 @@ class mFrame(Frame):
 class mCanvas(Canvas):
 
     def __init__(self, master, *args, **kw):
-        Canvas.__init__(self, master, width=1000, height=800, background="white", *args, **kw)
+        Canvas.__init__(self, master, width=1280, height=800, background="white", *args, **kw)
         self.master = master
         self.stack = 0
         self.bind("<ButtonPress-1>", self.__onPress)
         self.bind("<ButtonRelease-1>", self.__onRelease)
         self.bind("<B1-Motion>", self.__onMotion)
-        self.outline = "#000"
+        self.outline = "#000000"
         self.color = ""
         self.taille = 10
         self.outil = "point"
@@ -41,20 +41,20 @@ class mCanvas(Canvas):
             self.stack += 1
         elif(self.outil == "point"):
             self.stack += 1
-            self.create_oval(x-self.taille/2, y-self.taille/2, x+self.taille/2, y+self.taille/2, tags="obj"+str(self.stack), outline=self.outline, fill=self.outline)
+            self.create_line(x, y, x, y, capstyle=ROUND, width=self.taille, tags="obj"+str(self.stack), fill=self.outline)
+            self.x, self.y = x, y
 
     def __onRelease(self, ev):
         x = self.canvasx(ev.x)
         y = self.canvasy(ev.y)
         if(self.outil == "ligne"):
             self.create_line(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, fill=self.outline)
-            ##print self.stack
         elif(self.outil == "rectangle"):
             self.create_rectangle(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, outline=self.outline, fill=self.color)
         elif(self.outil == "cercle"):
             self.create_oval(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, outline=self.outline, fill=self.color)
         elif(self.outil == "point"):
-            pass #self.stack = self.create_oval(x-self.taille/2, y-self.taille/2, x+self.taille/2, y+self.taille/2, outline=self.color, fill=self.color)
+            self.create_line(self.x, self.y, x, y, capstyle=ROUND, width=self.taille, tags="obj"+str(self.stack), fill=self.color)
 
     def __onMotion(self, ev):
         x = self.canvasx(ev.x)
@@ -62,7 +62,6 @@ class mCanvas(Canvas):
         if(self.outil == "ligne"):
             self.delete("obj"+str(self.stack))
             self.create_line(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, fill=self.outline)
-            #print self.stack
         elif(self.outil == "rectangle"):
             self.delete("obj"+str(self.stack))
             self.create_rectangle(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, outline=self.outline, fill=self.color)
@@ -70,7 +69,8 @@ class mCanvas(Canvas):
             self.delete("obj"+str(self.stack))
             self.create_oval(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, outline=self.outline, fill=self.color)
         elif(self.outil == "point"):
-            self.create_oval(x-self.taille/2, y-self.taille/2, x+self.taille/2, y+self.taille/2, tags="obj"+str(self.stack), outline=self.outline, fill=self.outline)
+            self.create_line(self.x, self.y, x, y, capstyle=ROUND, width=self.taille, tags="obj"+str(self.stack), fill=self.outline)
+            self.x, self.y = x, y
 
 class BoiteOutils(mFrame):
 
@@ -80,18 +80,54 @@ class BoiteOutils(mFrame):
         Button(self, text="Rectangle", command=lambda a="rectangle":self.master.changerOutil(a)).grid(row=15, column=5)
         Button(self, text="Cercle", command=lambda a="cercle":self.master.changerOutil(a)).grid(row=20, column=5)
 
+class PaletteCouleurs(mFrame):
+
+    def construire(self):
+        couleurs = ("#ffffff","#cccccc","#999999","#666666","#333333","#000000")
+        row = 5
+        self.couleur = StringVar()
+        self.couleur.set(self.master.canvas.outline)
+        self.couleur.trace("w", self.changerCouleur)
+        for couleur in couleurs:
+            Button(self, bg=couleur, width=3, command=lambda a=couleur:self._changerCouleur(a)).grid(row=row, column=5)
+            row += 5
+        Entry(self, width=8, textvariable=self.couleur).grid(row=row, column=5, padx=10)
+
+    def _changerCouleur(self, couleur, e=None):
+        self.couleur.set(couleur)
+    
+    def changerCouleur(self, *args):
+        self.master.changerCouleur(self.couleur.get())
+
+class Parametres(mFrame):
+
+    def construire(self):
+        self.taille = StringVar()
+        self.taille.set(self.master.canvas.taille)
+        self.taille.trace("w", self.changerTaille)
+        Label(self, text="Taille").grid(row=5, column=5)
+        Entry(self, width=3, textvariable=self.taille).grid(row=5, column=10, padx=10)
+
+    def changerTaille(self, *args):
+        self.master.changerTaille(self.taille.get())
 
 class AtelierCreation(mFrame):
 
     def construire(self):
-        #Label(self, text="Atelier").pack(side=TOP)
-        #BoiteOutils(self).pack(side=LEFT)
         self.canvas = mCanvas(self)
         self.canvas.pack(side=RIGHT)
         BoiteOutils(self).pack(side=LEFT)
+        PaletteCouleurs(self).pack(side=LEFT)
+        Parametres(self).pack(side=LEFT)
 
     def changerOutil(self, outil):
         self.canvas.outil = outil
+
+    def changerCouleur(self, couleur):
+        self.canvas.outline = couleur
+
+    def changerTaille(self, taille):
+        self.canvas.taille = taille
 
     def undo(self):
         self.canvas.undo()
@@ -121,7 +157,7 @@ class Vue(Tk):
     
     def __init__(self, controleur, *args,**kw):
         Tk.__init__(self, *args,**kw)
-        #self.geometry("800x600")
+        self.geometry("+50+50")
         #self.resizable(width=FALSE, height=FALSE)
         self.controleur = controleur
         self.title("Experience Creator - Nouveau *")
