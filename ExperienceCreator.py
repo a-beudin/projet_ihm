@@ -1,6 +1,7 @@
 from Tkinter import *
 import re
-import tkFileDialog as tkFile   
+import tkFileDialog as tkFile
+import tkMessageBox as tkMsg
 
 class PressePapier(list):
 
@@ -29,7 +30,11 @@ class mFrame(Frame):
     def __init__(self, master, *args, **kw):
         Frame.__init__(self, master, background="#808080", *args, **kw)
         self.master = master
+        self.modifie = False
         self.construire()
+
+    def construire(self):
+        pass
 
 class mCanvas(Canvas):
 
@@ -47,14 +52,7 @@ class mCanvas(Canvas):
         self.taille = 50
         self.outil = "selectionM"
         self.itemsSelected = []
-        self.bind("<KeyPress>", self.__onKeyPress)
-
-    def __onKeyPress(self, e=None):
-        #self.firstrelease = True
-        print "ok"
-        astr = "pressed: " + str(e.key())
-        print astr
-        #self.keylist.append(astr)
+        self.master.modifie = True
 
     def changerOutil(self, outil):
         self.outil = outil
@@ -65,6 +63,7 @@ class mCanvas(Canvas):
         self.delete("obj"+str(self.stack))
         if(self.stack > 1):
             self.stack -= 1
+        self.master.modifie = True
 
     def copier(self):
         self.pressePapier.copier(self.itemsSelected)
@@ -75,6 +74,7 @@ class mCanvas(Canvas):
     def coller(self):
         items = self.pressePapier.coller()
         if(len(items) > 0):
+            self.master.modifie = True
             self.itemsSelected = items
             self.delete("rectangleSelect")
             for item in self.itemsSelected:
@@ -97,8 +97,10 @@ class mCanvas(Canvas):
 
     def supprimer(self):
         self.delete("rectangleSelect")
-        for item in self.itemsSelected:
-            self.delete(item)
+        if(len(self.itemsSelected) > 0):
+            self.master.modifie = True
+            for item in self.itemsSelected:
+                self.delete(item)
             
     def __onPress(self, ev):
         x = self.canvasx(ev.x)
@@ -115,8 +117,8 @@ class mCanvas(Canvas):
                 self.delete("rectangleSelect")
         elif(self.outil == "selection"):
             self.x, self.y = x, y
-            
-            self.itemsSelected = []
+            if(self.master.master.keysPressed.count("17") == 0):
+                self.itemsSelected = []
             self.delete("rectangleSelect")
             tags = self.gettags(self.find_withtag(CURRENT))
             for tag in tags:
@@ -150,16 +152,22 @@ class mCanvas(Canvas):
         elif(self.outil == "selectionM"):
             self.delete("rect")
         elif(self.outil == "selection"):
-            for item in self.itemsSelected:
-                self.move("rectangleSelect", x - self.x, y - self.y)
-                self.move(item, x - self.x, y - self.y)
+            if(len(self.itemsSelected) > 0):
+                self.master.modifie = True
+                for item in self.itemsSelected:
+                    self.move("rectangleSelect", x - self.x, y - self.y)
+                    self.move(item, x - self.x, y - self.y)
         elif(self.outil == "ligne"):
+            self.master.modifie = True
             pass #self.create_line(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, fill=self.outline)
         elif(self.outil == "rectangle"):
+            self.master.modifie = True
             pass #self.create_rectangle(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, outline=self.outline, fill=self.color)
         elif(self.outil == "cercle"):
+            self.master.modifie = True
             pass #self.create_oval(self.x, self.y, x, y, tags="obj"+str(self.stack), width=self.taille, outline=self.outline, fill=self.color)
         elif(self.outil == "point"):
+            self.master.modifie = True
             pass #self.create_line(self.x, self.y, x, y, capstyle=ROUND, width=self.taille, tags="obj"+str(self.stack), fill=self.color)
 
     def __onMotion(self, ev):
@@ -206,6 +214,39 @@ class mCanvas(Canvas):
         elif(self.outil == "point"):
             self.create_line(self.x, self.y, x, y, capstyle=ROUND, width=self.taille, tags="obj"+str(self.stack), fill=self.outline)
             self.x, self.y = x, y
+
+    def charger(self, filename):
+        f = open(filename, "r")
+        lines = f.readlines()
+        for line in lines:
+            line = line.split(" ")
+            line[7] = line[7].strip()
+            if(line[0] == "line"):
+                self.create_line(line[1], line[2], line[3], line[4], width=line[5], capstyle=line[6], fill=line[7])
+            elif(line[0] == "rectangle"):
+                self.create_rectangle(line[1], line[2], line[3], line[4], width=line[5], outline=line[6], fill=line[7])
+            elif(line[0] == "oval"):
+                self.create_oval(line[1], line[2], line[3], line[4], width=line[5], outline=line[6], fill=line[7])
+        self.master.modifie = False
+
+    def enregistrer(self):
+        chaine = ""
+        items = self.find_all()
+        for item in items:
+            tags = self.gettags(item)
+            if("rectangleSelect" in tags):
+                continue
+            coords = self.coords(item)
+            if(len(coords) == 4):
+                if(self.type(item) == "line"):
+                    chaine += "line "+str(coords[0])+" "+str(coords[1])+" "+str(coords[2])+" "+str(coords[3])+" "+self.itemcget(item,"width")+" "+self.itemcget(item,"capstyle")+" "+self.itemcget(item,"fill")
+                elif(self.type(item) == "rectangle"):
+                    chaine += "rectangle "+str(coords[0])+" "+str(coords[1])+" "+str(coords[2])+" "+str(coords[3])+" "+self.itemcget(item,"width")+" "+self.itemcget(item,"outline")+" "+self.itemcget(item,"fill")
+                elif(self.type(item) == "oval"):
+                    chaine += "oval "+str(coords[0])+" "+str(coords[1])+" "+str(coords[2])+" "+str(coords[3])+" "+self.itemcget(item,"width")+" "+self.itemcget(item,"outline")+" "+self.itemcget(item,"fill")            
+                chaine += "\n"
+        self.master.modifie = False
+        return chaine
 
 class BoiteOutils(mFrame):
 
@@ -291,6 +332,7 @@ class BarreMenu(Menu):
     def construire(self):
         menuFichier = Menu(self)
         menuFichier.add_command(label="Nouveau", accelerator="Ctrl+N", command=self.master.nouvelleExperience)
+        menuFichier.add_command(label="Ouvrir", accelerator="Ctrl+O", command=self.master.controleur.chargerExperience)
         menuFichier.add_command(label="Enregistrer", accelerator="Ctrl+S", command=self.master.controleur.nouvelleExperience)
         menuFichier.add_separator()
         menuFichier.add_command(label="Quitter", accelerator="Ctrl+Q", command=self.master.quitter)
@@ -317,6 +359,7 @@ class Vue(Tk):
         self.controleur = controleur
         self.title("Experience Creator - Nouveau *")
         self.bind("<Control-n>", self.nouvelleExperience)
+        self.bind("<Control-o>", self.controleur.chargerExperience)
         self.bind("<Control-s>", self.controleur.nouvelleExperience)
         self.bind("<Control-z>", self.undo)
         self.bind("<Control-q>", self.quitter)
@@ -325,13 +368,25 @@ class Vue(Tk):
         self.bind("<Control-v>", self.coller)
         self.bind("<BackSpace>", self.supprimer)
         self.bind("<Delete>", self.supprimer)
+        self.bind("<KeyPress>", self.__onKeyPress)
+        self.bind("<KeyRelease>", self.__onKeyRelease)
+        self.protocol("WM_DELETE_WINDOW", self.quitter)
+        self.keysPressed = []
         self.construire()
 
     def construire(self):
         barreMenu = BarreMenu(self)
         self.config(menu=barreMenu)
-        self.frame = Frame()
+        self.frame = mFrame(self)
         self.nouvelleExperience()
+
+    def __onKeyPress(self, e=None):
+        if(str(e.keycode) not in self.keysPressed):
+            self.keysPressed.append(str(e.keycode))
+
+    def __onKeyRelease(self, e=None):
+        if(str(e.keycode) in self.keysPressed):
+            self.keysPressed.remove(str(e.keycode))
 
     def undo(self, e=None):
         self.frame.undo()
@@ -348,16 +403,35 @@ class Vue(Tk):
     def supprimer(self, e=None):
         self.frame.supprimer()
 
+    def confirmation(self, action, message):
+        if(self.frame.modifie):
+            rep = tkMsg.askquestion(action, message, icon="warning")
+            if(rep == "yes"):
+                return True
+            else:
+                return False
+        return True
+
     def nouvelleExperience(self, e=None):
-        self.frame.destroy()
-        self.frame = AtelierCreation(self)
-        self.controleur.filename = ""
-        self.title("Experience Creator - Nouveau *")
-        self.frame.pack()
+        if(self.confirmation("Nouveau", "Etes-vous sur ?")):    
+            self.frame.destroy()
+            self.frame = AtelierCreation(self)
+            self.controleur.filename = ""
+            self.title("Experience Creator - Nouveau *")
+            self.frame.pack()
+
+    def chargerExperience(self, e=None):
+        if(self.confirmation("Ouvrir", "Etes-vous sur ?")):
+            self.frame.destroy()
+            self.frame = AtelierCreation(self)
+            self.title("Experience Creator - "+self.controleur.filename)
+            self.frame.pack()
+            self.frame.canvas.charger(self.controleur.filename)
 
     def quitter(self, e=None):
-        self.quit()
-        self.destroy()
+        if(self.confirmation("Quitter", "Etes-vous sur ?")):
+            self.quit()
+            self.destroy()
         
 
 class Controleur(object):
@@ -368,12 +442,21 @@ class Controleur(object):
 
     def nouvelleExperience(self, e=None):
         if(self.filename == ""):
-            self.filename = tkFile.asksaveasfilename(filetypes=[("Postscript",".ps")],defaultextension=".ps")
-        if(self.filename):
+            self.filename = tkFile.asksaveasfilename(filetypes=[("Postscript",".ps"),("Experience",".exp")],defaultextension=".exp")
+        if(self.filename != ""):
             self.vue.title("Experience Creator - " + self.filename)
             self.vue.frame.canvas.update()
-            self.vue.frame.canvas.postscript(file=self.filename, colormode='color')
+            if(re.match(r'(.*)\.ps',self.filename)):
+                self.vue.frame.canvas.postscript(file=self.filename, colormode='color')
+            if(re.match(r'(.*)\.exp',self.filename)):
+                f = open(self.filename,"w")
+                f.write(self.vue.frame.canvas.enregistrer())
 
+    def chargerExperience(self, e=None):
+        filename = tkFile.askopenfilename(filetypes=[("Postscript",".ps"),("Experience",".exp")])
+        if(filename != ""):
+            self.filename = filename
+            self.vue.chargerExperience()
 
 if __name__ == "__main__":
     controleur = Controleur()
